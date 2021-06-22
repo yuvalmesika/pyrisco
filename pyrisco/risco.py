@@ -2,12 +2,23 @@
 
 import aiohttp
 import asyncio
+import json
+from abc import ABC, abstractmethod
 
 LOGIN_URL = "https://www.riscocloud.com/webapi/api/auth/login"
 SITE_URL = "https://www.riscocloud.com/webapi/api/wuws/site/GetAll"
 PIN_URL = "https://www.riscocloud.com/webapi/api/wuws/site/%s/Login"
 STATE_URL = "https://www.riscocloud.com/webapi/api/wuws/site/%s/ControlPanel/GetState"
 CONTROL_URL = "https://www.riscocloud.com/webapi/api/wuws/site/%s/ControlPanel/PartArm"
+CONTROL_URL_PANEL_MODE = "https://www.riscocloud.com/webapi/api/wuws/site/%s/ControlPanel/Arm"
+PANEL_ARM = 1
+PANEL_DISARM = 0
+PANEL_PARTIAL_ARM = 2
+
+PARTITION_ARM = 3
+PARTITION_DISARM = 1
+PARTITION_PARTIAL_ARM = 2
+
 EVENTS_URL = (
     "https://www.riscocloud.com/webapi/api/wuws/site/%s/ControlPanel/GetEventLog"
 )
@@ -35,7 +46,7 @@ EVENT_IDS_TO_TYPES = {
 }
 
 
-class Partition:
+class Partition(ABC):
     """A representation of a Risco partition."""
 
     def __init__(self, raw):
@@ -43,34 +54,35 @@ class Partition:
         self._raw = raw
 
     @property
+    @abstractmethod
     def id(self):
         """Partition ID number."""
         return self._raw["id"]
 
     @property
+    @abstractmethod
     def disarmed(self):
-        """Is the partition disarmed."""
-        return self._raw["armedState"] == 1
+        pass
 
     @property
+    @abstractmethod
     def partially_armed(self):
-        """Is the partition partially-armed."""
-        return self._raw["armedState"] == 2
+        pass
 
     @property
+    @abstractmethod
     def armed(self):
-        """Is the partition armed."""
-        return self._raw["armedState"] == 3
+        pass
 
     @property
+    @abstractmethod
     def triggered(self):
-        """Is the partition triggered."""
-        return self._raw["alarmState"] == 1
+        pass
 
     @property
+    @abstractmethod
     def exit_timeout(self):
-        """Time remaining till armed."""
-        return self._raw["exitDelayTO"]
+        pass
 
     @property
     def arming(self):
@@ -78,12 +90,86 @@ class Partition:
         return self.exit_timeout > 0
 
     @property
+    @abstractmethod
+    def groups(self):
+        pass
+
+    @property
+    @abstractmethod
+    def panelMode(self):
+        pass
+
+
+class SinglePartition(Partition):
+    def __init__(self, raw):
+        super().__init__(raw)
+
+    def id(self):
+        return 0
+
+    def disarmed(self):
+        """Is the partition disarmed."""
+        return self._raw["systemStatus"] == 0
+
+    def partially_armed(self):
+        """Is the partition partially-armed."""
+        return self._raw["systemStatus"] == 4
+
+    def armed(self):
+        """Is the partition armed."""
+        return self._raw["systemStatus"] == 1
+
+    def triggered(self):
+        """Is the partition triggered."""
+        return self._raw["bellOn"]
+    
+    def exit_timeout(self):
+        """Time remaining till armed."""
+        return self._raw["exitDelayTimeout"]
+
+    def groups(self):
+        """Group arming status."""
+        return {}
+
+    def panelMode(self):
+        return True
+
+class MultiplePartition(Partition): 
+    def __init__(self, raw):
+        super().__init__(raw)
+
+    def id(self):
+        """Partition ID number."""
+        return self._raw["id"]
+
+    def disarmed(self):
+        """Is the partition disarmed."""
+        return self._raw["armedState"] == 1
+
+    def partially_armed(self):
+        """Is the partition partially-armed."""
+        return self._raw["armedState"] == 2
+
+    def armed(self):
+        """Is the partition armed."""
+        return self._raw["armedState"] == 3
+
+    def triggered(self):
+        """Is the partition triggered."""
+        return self._raw["alarmState"] == 1
+
+    def exit_timeout(self):
+        """Time remaining till armed."""
+        return self._raw["exitDelayTO"]
+
     def groups(self):
         """Group arming status."""
         if self._raw.get("groups") is None:
             return {}
         return {GROUP_ID_TO_NAME[g["id"]]: g["state"] == 3 for g in self._raw["groups"]}
 
+    def panelMode(self):
+        return False
 
 class Zone:
     """A representation of a Risco zone."""
@@ -131,7 +217,10 @@ class Alarm:
     def partitions(self):
         """Alarm partitions."""
         if self._partitions is None:
-            self._partitions = {p["id"]: Partition(p) for p in self._raw["partitions"]}
+            if self._raw["partitions"] is not None:
+                self._partitions = {p["id"]: MultiplePartition(p) for p in self._raw["partitions"]}
+            else:
+                self._partitions = {0: SinglePartition(self._raw)}
         return self._partitions
 
     @property
@@ -237,6 +326,13 @@ class RiscoAPI:
         self._site_uuid = None
         self._session = None
         self._created_session = False
+        self._control_url = None
+        self._state_body_template = None
+        self._group_body_template = None
+        self._state_arm = None
+        self._state_disarm = None
+        self._state_partial_arm = None
+
 
     async def _authenticated_post(self, url, body):
         headers = {
@@ -308,6 +404,25 @@ class RiscoAPI:
             else:
                 self._session = session
 
+    async def _init_system_partion_type(self):
+        alarm = await self.get_state()
+        if (alarm.partitions[0].panelMode):
+            self._control_url = CONTROL_URL_PANEL_MODE
+            self._state_body_template =  "{{\"newSystemStatus\": {1} }}"
+            self._group_body_template  =  "{{\"newSystemStatus\": {1} }}"
+            self._state_arm = PANEL_ARM
+            self._state_disarm = PANEL_DISARM
+            self._state_partial_arm = PANEL_PARTIAL_ARM
+
+        else:
+            self._control_url = CONTROL_URL
+            self._state_body_template = '{"partitions": [{"id": {0}, "armedState": {1}}],}'
+            self._group_body_template  =  '{"partitions": [{"id": {0}, "groups": [{"id": {1}, "state": {2}}]}],}'
+            self._state_arm = PARTITION_ARM
+            self._state_disarm = PARTITION_DISARM
+            self._state_partial_arm = PARTITION_PARTIAL_ARM
+
+
     async def close(self):
         """Close the connection."""
         self._session_id = None
@@ -315,6 +430,7 @@ class RiscoAPI:
             await self._session.close()
             self._session = None
             self._created_session = False
+
 
     async def login(self, session=None):
         """Login to Risco Cloud."""
@@ -325,6 +441,7 @@ class RiscoAPI:
         await self._login_user_pass()
         await self._login_site()
         await self._login_session()
+        await self._init_system_partion_type()
 
     async def get_state(self):
         """Get partitions and zones."""
@@ -333,34 +450,26 @@ class RiscoAPI:
 
     async def disarm(self, partition):
         """Disarm the alarm."""
-        body = {
-            "partitions": [{"id": partition, "armedState": 1}],
-        }
-        return Alarm(await self._site_post(CONTROL_URL, body))
+        body = json.loads(self._state_body_template.format(partition, self._state_disarm))
+        return Alarm(await self._site_post(self._control_url, body))
 
     async def arm(self, partition):
         """Arm the alarm."""
-        body = {
-            "partitions": [{"id": partition, "armedState": 3}],
-        }
-        return Alarm(await self._site_post(CONTROL_URL, body))
+        body = json.loads(self._state_body_template.format(partition, self._state_arm))
+        return Alarm(await self._site_post(self._control_url, body))
 
     async def partial_arm(self, partition):
         """Partially-arm the alarm."""
-        body = {
-            "partitions": [{"id": partition, "armedState": 2}],
-        }
-        return Alarm(await self._site_post(CONTROL_URL, body))
+        body = json.loads(self._state_body_template.format(partition,self._state_partial_arm))
+        return Alarm(await self._site_post(self._control_url, body))
 
     async def group_arm(self, partition, group):
         """Arm a specific group."""
         if isinstance(group, str):
             group = GROUP_ID_TO_NAME.index(group)
 
-        body = {
-            "partitions": [{"id": partition, "groups": [{"id": group, "state": 3}]}],
-        }
-        return Alarm(await self._site_post(CONTROL_URL, body))
+        body = json.loads(self._group_body_template.format( partition, group, self._state_arm))
+        return Alarm(await self._site_post(self._control_url, body))
 
     async def get_events(self, newer_than, count=10):
         """Get event log."""
