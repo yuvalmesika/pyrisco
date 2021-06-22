@@ -409,6 +409,8 @@ class RiscoAPI:
 
     async def _init_system_partion_type(self):
         alarm = await self.get_state()
+        if (alarm.partitions is None)
+            raise OperationError(str(alarm))
         first_partition = list(alarm.partitions.values())[0]
         print(first_partition)
         if (first_partition.panelMode):
