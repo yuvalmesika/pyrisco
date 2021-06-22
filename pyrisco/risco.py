@@ -220,8 +220,10 @@ class Alarm:
         """Alarm partitions."""
         if self._partitions is None:
             if self._raw["partitions"] is not None:
+                print('Partitions exists')
                 self._partitions = {p["id"]: MultiplePartition(p) for p in self._raw["partitions"]}
             else:
+                print('Partitions not exists create a single partition')
                 self._partitions = {0: SinglePartition(self._raw)}
         return self._partitions
 
@@ -408,7 +410,9 @@ class RiscoAPI:
 
     async def _init_system_partion_type(self):
         alarm = await self.get_state()
-        if (alarm.partitions[0].panelMode):
+        first_partition = list(alarm.partitions.values())[0]
+        print(first_partition)
+        if (first_partition.panelMode):
             self._control_url = CONTROL_URL_PANEL_MODE
             self._state_body_template =  "{{\"newSystemStatus\": {1} }}"
             self._group_body_template  =  "{{\"newSystemStatus\": {1} }}"
