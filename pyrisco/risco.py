@@ -56,8 +56,7 @@ class Partition(ABC):
     @property
     @abstractmethod
     def id(self):
-        """Partition ID number."""
-        return self._raw["id"]
+        pass
 
     @property
     @abstractmethod
