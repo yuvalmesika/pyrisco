@@ -94,9 +94,8 @@ class Partition(ABC):
         pass
 
     @property
-    @abstractmethod
     def panel_mode(self):
-        pass
+        return self._raw.get("partitions") is None
 
 
 class SinglePartition(Partition):
@@ -131,8 +130,6 @@ class SinglePartition(Partition):
         """Group arming status."""
         return {}
 
-    def panel_mode(self):
-        return self._panel_mode
 
 class MultiplePartition(Partition): 
     def __init__(self, raw):
@@ -168,9 +165,6 @@ class MultiplePartition(Partition):
         if self._raw.get("groups") is None:
             return {}
         return {GROUP_ID_TO_NAME[g["id"]]: g["state"] == 3 for g in self._raw["groups"]}
-
-    def panel_mode(self):
-        return self._panel_mode
 
 class Zone:
     """A representation of a Risco zone."""
@@ -409,8 +403,8 @@ class RiscoAPI:
 
     async def _init_system_partion_type(self):
         alarm = await self.get_state()
-        if (alarm.partitions is None)
-            raise OperationError(str(alarm))
+        #if (alarm.partitions is None)
+         #   raise OperationError(str(alarm))
         first_partition = list(alarm.partitions.values())[0]
         print(first_partition)
         if (first_partition.panel_mode):
