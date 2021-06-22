@@ -101,29 +101,36 @@ class SinglePartition(Partition):
     def __init__(self, raw):
         super().__init__(raw)
 
+    @property
     def id(self):
         return 0
 
+    @property
     def disarmed(self):
         """Is the partition disarmed."""
         return self._raw["systemStatus"] == 0
 
+    @property
     def partially_armed(self):
         """Is the partition partially-armed."""
         return self._raw["systemStatus"] == 4
 
+    @property
     def armed(self):
         """Is the partition armed."""
         return self._raw["systemStatus"] == 1
 
+    @property
     def triggered(self):
         """Is the partition triggered."""
         return self._raw["bellOn"]
     
+    @property
     def exit_timeout(self):
         """Time remaining till armed."""
         return self._raw["exitDelayTimeout"]
 
+    @property
     def groups(self):
         """Group arming status."""
         return {}
@@ -132,30 +139,36 @@ class MultiplePartition(Partition):
     def __init__(self, raw):
         super().__init__(raw)
 
+    @property
     def id(self):
         """Partition ID number."""
         return self._raw["id"]
-
+    @property
     def disarmed(self):
         """Is the partition disarmed."""
         return self._raw["armedState"] == 1
 
+    @property
     def partially_armed(self):
         """Is the partition partially-armed."""
         return self._raw["armedState"] == 2
 
+    @property
     def armed(self):
         """Is the partition armed."""
         return self._raw["armedState"] == 3
 
+    @property
     def triggered(self):
         """Is the partition triggered."""
         return self._raw["alarmState"] == 1
 
+    @property
     def exit_timeout(self):
         """Time remaining till armed."""
         return self._raw["exitDelayTO"]
 
+    @property
     def groups(self):
         """Group arming status."""
         if self._raw.get("groups") is None:
