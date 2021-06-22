@@ -103,6 +103,7 @@ class Partition(ABC):
 class SinglePartition(Partition):
     def __init__(self, raw):
         super().__init__(raw)
+        self._panelMode = True
 
     def id(self):
         return 0
@@ -132,11 +133,12 @@ class SinglePartition(Partition):
         return {}
 
     def panelMode(self):
-        return True
+        return self._panelMode
 
 class MultiplePartition(Partition): 
     def __init__(self, raw):
         super().__init__(raw)
+        self._panelMode = False
 
     def id(self):
         """Partition ID number."""
@@ -169,7 +171,7 @@ class MultiplePartition(Partition):
         return {GROUP_ID_TO_NAME[g["id"]]: g["state"] == 3 for g in self._raw["groups"]}
 
     def panelMode(self):
-        return False
+        return self._panelMode
 
 class Zone:
     """A representation of a Risco zone."""
