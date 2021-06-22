@@ -97,7 +97,6 @@ class Partition(ABC):
     def panel_mode(self):
         return self._raw.get("partitions") is None
 
-
 class SinglePartition(Partition):
     def __init__(self, raw):
         self._panel_mode = True
@@ -130,8 +129,7 @@ class SinglePartition(Partition):
         """Group arming status."""
         return {}
 
-
-class MultiplePartition(Partition): 
+class MultiplePartition(Partition):
     def __init__(self, raw):
         self._panel_mode = False
         super().__init__(raw)
@@ -227,7 +225,6 @@ class Alarm:
             self._zones = {z["zoneID"]: Zone(z) for z in self._raw["zones"]}
         return self._zones
 
-
 class Event:
     """A representation of a Risco event."""
 
@@ -252,7 +249,6 @@ class Event:
         partition_id = self.raw["partAssociationCSV"]
         if partition_id is None:
             return None
-
         return int(partition_id)
 
     @property
@@ -306,7 +302,6 @@ class Event:
     def source_id(self):
         return self._source_id
 
-
 class RiscoAPI:
     """A connection to a Risco alarm system."""
 
@@ -329,7 +324,6 @@ class RiscoAPI:
         self._state_arm = None
         self._state_disarm = None
         self._state_partial_arm = None
-
 
     async def _authenticated_post(self, url, body):
         headers = {
@@ -423,7 +417,6 @@ class RiscoAPI:
             self._state_disarm = PARTITION_DISARM
             self._state_partial_arm = PARTITION_PARTIAL_ARM
 
-
     async def close(self):
         """Close the connection."""
         self._session_id = None
@@ -431,7 +424,6 @@ class RiscoAPI:
             await self._session.close()
             self._session = None
             self._created_session = False
-
 
     async def login(self, session=None):
         """Login to Risco Cloud."""
@@ -503,14 +495,11 @@ class RiscoAPI:
         """Site UUID of the Alarm instance."""
         return self._site_uuid
 
-
 class UnauthorizedError(Exception):
     """Exception to indicate an error in authorization."""
 
-
 class CannotConnectError(Exception):
     """Exception to indicate an error in authorization."""
-
 
 class OperationError(Exception):
     """Exception to indicate an error in operation."""
