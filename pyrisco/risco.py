@@ -95,14 +95,14 @@ class Partition(ABC):
 
     @property
     @abstractmethod
-    def panelMode(self):
+    def panel_mode(self):
         pass
 
 
 class SinglePartition(Partition):
     def __init__(self, raw):
+        self._panel_mode = True
         super().__init__(raw)
-        self._panelMode = True
 
     def id(self):
         return 0
@@ -131,13 +131,13 @@ class SinglePartition(Partition):
         """Group arming status."""
         return {}
 
-    def panelMode(self):
-        return self._panelMode
+    def panel_mode(self):
+        return self._panel_mode
 
 class MultiplePartition(Partition): 
     def __init__(self, raw):
+        self._panel_mode = False
         super().__init__(raw)
-        self._panelMode = False
 
     def id(self):
         """Partition ID number."""
@@ -169,8 +169,8 @@ class MultiplePartition(Partition):
             return {}
         return {GROUP_ID_TO_NAME[g["id"]]: g["state"] == 3 for g in self._raw["groups"]}
 
-    def panelMode(self):
-        return self._panelMode
+    def panel_mode(self):
+        return self._panel_mode
 
 class Zone:
     """A representation of a Risco zone."""
@@ -413,7 +413,7 @@ class RiscoAPI:
             raise OperationError(str(alarm))
         first_partition = list(alarm.partitions.values())[0]
         print(first_partition)
-        if (first_partition.panelMode):
+        if (first_partition.panel_mode):
             self._control_url = CONTROL_URL_PANEL_MODE
             self._state_body_template =  "{{\"newSystemStatus\": {1} }}"
             self._group_body_template  =  "{{\"newSystemStatus\": {1} }}"
