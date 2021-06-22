@@ -99,7 +99,6 @@ class Partition(ABC):
 
 class SinglePartition(Partition):
     def __init__(self, raw):
-        self._panel_mode = True
         super().__init__(raw)
 
     def id(self):
@@ -131,7 +130,6 @@ class SinglePartition(Partition):
 
 class MultiplePartition(Partition):
     def __init__(self, raw):
-        self._panel_mode = False
         super().__init__(raw)
 
     def id(self):
@@ -500,6 +498,6 @@ class UnauthorizedError(Exception):
 
 class CannotConnectError(Exception):
     """Exception to indicate an error in authorization."""
-
+/
 class OperationError(Exception):
     """Exception to indicate an error in operation."""
