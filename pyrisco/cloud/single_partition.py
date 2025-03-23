@@ -5,6 +5,19 @@ class SinglePartition(BasePartition):
         """Read partition from response."""
         self._api = api
         self._raw = raw
+
+    async def disarm(self):
+        return await self._api.disarm(self.id)
+
+    async def arm(self):
+        return await self._api.arm(self.id)
+
+    async def partial_arm(self):
+        return await self._api.partial_arm(self.id)
+
+    async def group_arm(self, group):
+        return await self._api.group_arm(self.id, group)
+
     @property
     def id(self):
         return 0
