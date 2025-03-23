@@ -1,1 +1,3 @@
-from .risco import RiscoAPI, CannotConnectError, OperationError, UnauthorizedError
+from pyrisco.local import RiscoLocal
+from pyrisco.cloud import RiscoCloud
+from .common import CannotConnectError, OperationError, UnauthorizedError
