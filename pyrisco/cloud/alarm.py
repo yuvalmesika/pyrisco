@@ -1,4 +1,5 @@
 from .partition import Partition
+from .single_partition import SinglePartition
 from .zone import Zone
 
 class Alarm:
@@ -16,14 +17,19 @@ class Alarm:
   def assumed_control_panel_state(self):
     """Return True if the state is based on RiscoCloud instead of reading it from the control panel."""
     return self._assumed_control_panel_state
-
   @property
   def partitions(self):
-    """Alarm partitions."""
-    if self._partitions is None:
-      self._partitions = {p["id"]: Partition(self._api, p) for p in self._raw["partitions"]}
-    return self._partitions
-
+        """Alarm partitions."""
+        if self._partitions is None:
+            if self._raw["partitions"] is not None:
+                print('Partitions exists')
+                self._partitions = {p["id"]: Partition(self._api, p) for p in self._raw["partitions"]}
+            else:
+                print('Partitions not exists create a single partition')
+                parti= [{"id": 0}]
+                self._partitions = {p["id"]: SinglePartition(self._api, p) for p in parti}
+        return self._partitions
+  
   @property
   def zones(self):
     """Alarm zones."""

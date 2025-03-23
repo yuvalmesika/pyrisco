@@ -58,6 +58,11 @@ class Partition:
   def groups(self):
     """Group arming status."""
     raise NotImplementedError
+  
+  @property
+  def panel_mode(self):
+    """panel_mode ."""
+    raise NotImplementedError
 
 
 class Zone:

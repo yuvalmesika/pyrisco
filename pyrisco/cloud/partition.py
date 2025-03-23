@@ -61,3 +61,7 @@ class Partition(BasePartition):
     if self._raw.get("groups") is None:
       return {}
     return {GROUP_ID_TO_NAME[g["id"]]: g["state"] == 3 for g in self._raw["groups"]}
+
+  @property
+  def panel_mode(self):
+      return self._raw.get("partitions") is None

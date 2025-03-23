@@ -2,6 +2,7 @@
 
 import aiohttp
 import asyncio
+import json
 
 from .alarm import Alarm
 from .event import Event
@@ -13,6 +14,15 @@ SITE_URL = "https://www.riscocloud.com/webapi/api/wuws/site/GetAll"
 PIN_URL = "https://www.riscocloud.com/webapi/api/wuws/site/%s/Login"
 STATE_URL = "https://www.riscocloud.com/webapi/api/wuws/site/%s/ControlPanel/GetState"
 CONTROL_URL = "https://www.riscocloud.com/webapi/api/wuws/site/%s/ControlPanel/PartArm"
+CONTROL_URL_PANEL_MODE = "https://www.riscocloud.com/webapi/api/wuws/site/%s/ControlPanel/Arm"
+PANEL_ARM = 1
+PANEL_DISARM = 0
+PANEL_PARTIAL_ARM = 2
+
+PARTITION_ARM = 3
+PARTITION_DISARM = 1
+PARTITION_PARTIAL_ARM = 2
+
 EVENTS_URL = (
   "https://www.riscocloud.com/webapi/api/wuws/site/%s/ControlPanel/GetEventLog"
 )
@@ -119,7 +129,7 @@ class RiscoCloud:
         self._session = session
 
   async def _send_control_command(self, body):
-    resp, assumed_control_panel_state = await self._site_post(CONTROL_URL, body)
+    resp, assumed_control_panel_state = await self._site_post(self._control_url, body)
     return Alarm(self, resp, assumed_control_panel_state)
 
   async def close(self):
@@ -139,6 +149,7 @@ class RiscoCloud:
     await self._login_user_pass()
     await self._login_site()
     await self._login_session()
+    await self._init_system_partion_type()
 
   async def get_state(self):
     """Get partitions and zones."""
@@ -147,33 +158,24 @@ class RiscoCloud:
 
   async def disarm(self, partition):
     """Disarm the alarm."""
-    body = {
-      "partitions": [{"id": partition, "armedState": 1}],
-    }
+    body = json.loads(self._state_body_template.format(partition, self._state_disarm))
     return await self._send_control_command(body)
 
   async def arm(self, partition):
     """Arm the alarm."""
-    body = {
-      "partitions": [{"id": partition, "armedState": 3}],
-    }
+    body = json.loads(self._state_body_template.format(partition, self._state_arm))
     return await self._send_control_command(body)
 
   async def partial_arm(self, partition):
     """Partially-arm the alarm."""
-    body = {
-      "partitions": [{"id": partition, "armedState": 2}],
-    }
+    body = json.loads(self._state_body_template.format(partition,self._state_partial_arm))
     return await self._send_control_command(body)
 
   async def group_arm(self, partition, group):
     """Arm a specific group."""
     if isinstance(group, str):
       group = GROUP_ID_TO_NAME.index(group)
-
-    body = {
-      "partitions": [{"id": partition, "groups": [{"id": group, "state": 3}]}],
-    }
+      body = json.loads(self._group_body_template.format( partition, group, 3))
     return await self._send_control_command(body)
 
   async def get_events(self, newer_than, count=10):
@@ -192,6 +194,28 @@ class RiscoCloud:
     body = {"zones": [{"trouble": 0, "ZoneID": zone, "Status": status}]}
     resp, assumed_control_panel_state = await self._site_post(BYPASS_URL, body)
     return Alarm(self, resp, assumed_control_panel_state)
+  
+  async def _init_system_partion_type(self):
+      alarm = await self.get_state()
+      #if (alarm.partitions is None)
+        #   raise OperationError(str(alarm))
+      first_partition = list(alarm.partitions.values())[0]
+      print(first_partition)
+      if (first_partition.panel_mode):
+          self._control_url = CONTROL_URL_PANEL_MODE
+          self._state_body_template =  "{{\"newSystemStatus\": {1} }}"
+          self._group_body_template  =  "{{\"newSystemStatus\": {1} }}"
+          self._state_arm = PANEL_ARM
+          self._state_disarm = PANEL_DISARM
+          self._state_partial_arm = PANEL_PARTIAL_ARM
+
+      else:
+          self._control_url = CONTROL_URL
+          self._state_body_template = '{"partitions": [{"id": {0}, "armedState": {1}}],}'
+          self._group_body_template  =  '{"partitions": [{"id": {0}, "groups": [{"id": {1}, "state": {2}}]}],}'
+          self._state_arm = PARTITION_ARM
+          self._state_disarm = PARTITION_DISARM
+          self._state_partial_arm = PARTITION_PARTIAL_ARM
 
   @property
   def site_id(self):
@@ -207,3 +231,4 @@ class RiscoCloud:
   def site_uuid(self):
     """Site UUID of the Alarm instance."""
     return self._site_uuid
+
