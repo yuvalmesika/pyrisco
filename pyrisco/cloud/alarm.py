@@ -26,8 +26,8 @@ class Alarm:
                 self._partitions = {p["id"]: Partition(self._api, p) for p in self._raw["partitions"]}
             else:
                 print('Partitions not exists create a single partition')
-                parti= [{"id": 0}]
-                self._partitions = {p["id"]: SinglePartition(self._api, p) for p in parti}
+                parti= [self._raw]
+                self._partitions = {0: SinglePartition(self._api, p) for p in parti}
         return self._partitions
   
   @property
